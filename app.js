@@ -1107,7 +1107,9 @@ PET-005,${baseUrl}/p/PET-005`;
               <th style="width: 50px;">Foto</th>
               <th>ID da Tag</th>
               <th>Nome do Pet</th>
+              <th>Sexo</th>
               <th>WhatsApp do Tutor</th>
+              <th>PIN</th>
               <th>Data do Cadastro</th>
               <th style="text-align: right;">Ação</th>
             </tr>
@@ -1120,11 +1122,13 @@ PET-005,${baseUrl}/p/PET-005`;
                 </td>
                 <td><strong style="font-family: var(--font-mono); color: #fff;">${escapeHtml(p.id)}</strong></td>
                 <td><span style="color: var(--accent-emerald); font-weight: 700;">${escapeHtml(p.nome || 'Sem nome')}</span></td>
+                <td>${p.sexo === 'femea' ? '♀️ Fêmea' : '♂️ Macho'}</td>
                 <td>
                   <a href="https://wa.me/${escapeHtml(p.telefone)}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: none; font-weight: 500;">
                     ${escapeHtml(p.telefoneOriginal || p.telefone)}
                   </a>
                 </td>
+                <td><code style="font-family: var(--font-mono); color: #f59e0b; font-weight: 700;">${escapeHtml(p.pin || 'Sem PIN')}</code></td>
                 <td style="color: var(--text-dim); font-size: 0.82rem;">
                   ${p.cadastradoEm ? new Date(p.cadastradoEm).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}
                 </td>
@@ -1163,6 +1167,12 @@ PET-005,${baseUrl}/p/PET-005`;
     const loadingEl = document.getElementById('petLoadingState');
     const cardCadastro = document.getElementById('cardCadastroPet');
     const cardEncontrei = document.getElementById('cardEncontreiPet');
+    const modalPin = document.getElementById('modalPinSecurity');
+    const formPin = document.getElementById('formVerifyPin');
+    const inputPin = document.getElementById('inputPinVerify');
+    const pinError = document.getElementById('pinVerifyError');
+    const btnCancelPin = document.getElementById('btnCancelPin');
+    const btnEditar = document.getElementById('btnEditarDadosTutor');
 
     if (loadingEl) loadingEl.classList.remove('hidden');
     if (cardCadastro) cardCadastro.classList.add('hidden');
@@ -1172,8 +1182,34 @@ PET-005,${baseUrl}/p/PET-005`;
 
     if (loadingEl) loadingEl.classList.add('hidden');
 
+    function abrirFormularioEdicao() {
+      closeModal(modalPin);
+      cardEncontrei.classList.add('hidden');
+      cardCadastro.classList.remove('hidden');
+      document.getElementById('petNome').value = petData.nome || '';
+      document.getElementById('petTelefone').value = petData.telefoneOriginal || petData.telefone || '';
+      
+      const radioSexo = document.querySelector(`input[name="petSexo"][value="${petData.sexo || 'macho'}"]`);
+      if (radioSexo) radioSexo.checked = true;
+
+      const pinInput = document.getElementById('petPin');
+      if (pinInput) pinInput.value = petData.pin || '';
+
+      if (petData.foto) {
+        document.getElementById('petFotoPreview').src = petData.foto;
+        const promptText = document.getElementById('fotoPromptText');
+        const previewWrap = document.getElementById('fotoPreviewWrapper');
+        if (promptText) promptText.classList.add('hidden');
+        if (previewWrap) previewWrap.classList.remove('hidden');
+      }
+
+      const submitBtn = document.getElementById('btnCadastrarPet');
+      if (submitBtn) submitBtn.textContent = 'Salvar Alterações 🐾';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     if (petData && petData.ativado) {
-      // Pet já cadastrado: mostrar tela de Encontrei o Pet no estilo exato da imagem
+      // Pet já cadastrado: mostrar tela de Encontrei o Pet no estilo da referência
       cardEncontrei.classList.remove('hidden');
 
       const sexo = (petData.sexo || 'macho').toLowerCase();
@@ -1245,135 +1281,161 @@ PET-005,${baseUrl}/p/PET-005`;
         atualizarAvisoWhats();
       }
 
-      // Permitir que o tutor altere seus dados
-      const btnEditar = document.getElementById('btnEditarDadosTutor');
+      // Botão de editar protegido por PIN
       if (btnEditar) {
         btnEditar.onclick = () => {
-          cardEncontrei.classList.add('hidden');
-          cardCadastro.classList.remove('hidden');
-          document.getElementById('petNome').value = petData.nome || '';
-          document.getElementById('petTelefone').value = petData.telefoneOriginal || petData.telefone || '';
-          
-          const radioSexo = document.querySelector(`input[name="petSexo"][value="${petData.sexo || 'macho'}"]`);
-          if (radioSexo) radioSexo.checked = true;
-
-          if (petData.foto) {
-            document.getElementById('petFotoPreview').src = petData.foto;
-            const promptText = document.getElementById('fotoPromptText');
-            const previewWrap = document.getElementById('fotoPreviewWrapper');
-            if (promptText) promptText.classList.add('hidden');
-            if (previewWrap) previewWrap.classList.remove('hidden');
+          if (petData.pin) {
+            openModal(modalPin);
+            if (inputPin) {
+              inputPin.value = '';
+              inputPin.focus();
+            }
+            if (pinError) pinError.classList.add('hidden');
+          } else {
+            // Tag antiga sem PIN: abre direto para permitir configurar
+            abrirFormularioEdicao();
           }
+        };
+      }
 
-          const submitBtn = document.getElementById('btnCadastrarPet');
-          if (submitBtn) submitBtn.textContent = 'Salvar Alterações 🐾';
+      if (btnCancelPin) {
+        btnCancelPin.onclick = () => {
+          closeModal(modalPin);
+        };
+      }
+
+      if (formPin) {
+        formPin.onsubmit = (e) => {
+          e.preventDefault();
+          const entered = inputPin ? inputPin.value.trim() : '';
+          if (entered === String(petData.pin).trim()) {
+            abrirFormularioEdicao();
+          } else {
+            if (pinError) pinError.classList.remove('hidden');
+            if (inputPin) {
+              inputPin.classList.add('shake');
+              setTimeout(() => inputPin.classList.remove('shake'), 400);
+              inputPin.select();
+            }
+          }
         };
       }
     } else {
       // Tag sem dono: mostrar formulário de cadastro direto
       cardCadastro.classList.remove('hidden');
+    }
 
-      let fotoDataUrl = "";
-      const areaUpload = document.getElementById('areaUploadFoto');
-      const fotoInput = document.getElementById('petFoto');
-      const promptText = document.getElementById('fotoPromptText');
-      const previewWrap = document.getElementById('fotoPreviewWrapper');
-      const fotoPreview = document.getElementById('petFotoPreview');
+    // Configuração do formulário de cadastro e upload de foto (usado tanto no 1º cadastro quanto na edição)
+    let fotoDataUrl = "";
+    const areaUpload = document.getElementById('areaUploadFoto');
+    const fotoInput = document.getElementById('petFoto');
+    const promptText = document.getElementById('fotoPromptText');
+    const previewWrap = document.getElementById('fotoPreviewWrapper');
+    const fotoPreview = document.getElementById('petFotoPreview');
 
-      if (areaUpload && fotoInput) {
-        areaUpload.onclick = (e) => {
-          if (e.target !== fotoInput) fotoInput.click();
+    if (areaUpload && fotoInput) {
+      areaUpload.onclick = (e) => {
+        if (e.target !== fotoInput) fotoInput.click();
+      };
+    }
+
+    if (fotoInput) {
+      fotoInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const size = 600;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const side = Math.min(img.width, img.height);
+            const sx = (img.width - side) / 2;
+            const sy = (img.height - side) / 2;
+            ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+            fotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            if (fotoPreview) fotoPreview.src = fotoDataUrl;
+            if (promptText) promptText.classList.add('hidden');
+            if (previewWrap) previewWrap.classList.remove('hidden');
+          };
+          img.src = ev.target.result;
         };
-      }
+        reader.readAsDataURL(file);
+      };
+    }
 
-      if (fotoInput) {
-        fotoInput.addEventListener('change', (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const size = 600;
-              canvas.width = size;
-              canvas.height = size;
-              const ctx = canvas.getContext('2d');
-              const side = Math.min(img.width, img.height);
-              const sx = (img.width - side) / 2;
-              const sy = (img.height - side) / 2;
-              ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-              fotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-              if (fotoPreview) fotoPreview.src = fotoDataUrl;
-              if (promptText) promptText.classList.add('hidden');
-              if (previewWrap) previewWrap.classList.remove('hidden');
-            };
-            img.src = ev.target.result;
-          };
-          reader.readAsDataURL(file);
-        });
-      }
+    const form = document.getElementById('formCadastroPet');
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('btnCadastrarPet');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvando na nuvem...';
 
-      const form = document.getElementById('formCadastroPet');
-      if (form) {
-        form.onsubmit = async (e) => {
-          e.preventDefault();
-          const submitBtn = document.getElementById('btnCadastrarPet');
-          const originalText = submitBtn.textContent;
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Salvando na nuvem...';
+        const pinVal = document.getElementById('petPin') ? document.getElementById('petPin').value.trim() : '';
+        if (!/^\d{4}$/.test(pinVal)) {
+          alert('Por favor, digite um PIN de segurança de exatamente 4 números (ex: 1234).');
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          if (document.getElementById('petPin')) document.getElementById('petPin').focus();
+          return;
+        }
 
-          const sexoEl = form.querySelector('input[name="petSexo"]:checked');
-          const sexo = sexoEl ? sexoEl.value : 'macho';
-          const nome = document.getElementById('petNome').value.trim();
-          let telRaw = document.getElementById('petTelefone').value.trim();
-          let digits = telRaw.replace(/\D/g, "");
-          if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
+        const sexoEl = form.querySelector('input[name="petSexo"]:checked');
+        const sexo = sexoEl ? sexoEl.value : 'macho';
+        const nome = document.getElementById('petNome').value.trim();
+        let telRaw = document.getElementById('petTelefone').value.trim();
+        let digits = telRaw.replace(/\D/g, "");
+        if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
 
-          const dataToSave = {
-            id: petId,
-            nome: nome,
-            sexo: sexo,
-            telefone: digits,
-            telefoneOriginal: telRaw,
-            foto: fotoDataUrl || (petData && petData.foto ? petData.foto : ""),
-            ativado: true,
-            cadastradoEm: new Date().toISOString()
-          };
+        const dataToSave = {
+          id: petId,
+          nome: nome,
+          sexo: sexo,
+          pin: pinVal,
+          telefone: digits,
+          telefoneOriginal: telRaw,
+          foto: fotoDataUrl || (petData && petData.foto ? petData.foto : ""),
+          ativado: true,
+          cadastradoEm: petData && petData.cadastradoEm ? petData.cadastradoEm : new Date().toISOString()
+        };
 
-          try {
-            await savePetToCloud(petId, dataToSave);
+        try {
+          await savePetToCloud(petId, dataToSave);
 
-            form.classList.add('hidden');
-            const resultado = document.getElementById('petCadastroResultado');
-            resultado.classList.remove('hidden');
-            const artigo = sexo === 'femea' ? 'a' : 'o';
-            resultado.innerHTML = `
-              <div style="margin-top: 1rem; color: #16a34a; font-weight: 600;">
-                <p>✅ Tag cadastrada com sucesso para <strong>${artigo} ${escapeHtml(nome)}</strong>!</p>
-                <p style="font-size:0.85rem; color: #64748b; margin-top:0.5rem;">
-                  A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC abrirá a tela oficial de contato do tutor.
-                </p>
-                <div style="margin-top: 1.25rem;">
-                  <button id="btnVerComoFicou" class="btn-submit-clean" style="background: #22c55e; cursor: pointer;">
-                    👀 Ver tela oficial de "Encontrei o Pet"
-                  </button>
-                </div>
+          form.classList.add('hidden');
+          const resultado = document.getElementById('petCadastroResultado');
+          resultado.classList.remove('hidden');
+          const artigo = sexo === 'femea' ? 'a' : 'o';
+          resultado.innerHTML = `
+            <div style="margin-top: 1rem; color: #16a34a; font-weight: 600;">
+              <p>✅ Tag salva na nuvem e protegida por PIN para <strong>${artigo} ${escapeHtml(nome)}</strong>!</p>
+              <p style="font-size:0.85rem; color: #64748b; margin-top:0.5rem;">
+                A partir de agora, apenas quem souber o PIN de 4 dígitos (<code>${escapeHtml(pinVal)}</code>) poderá alterar os dados desta coleira.
+              </p>
+              <div style="margin-top: 1.25rem;">
+                <button id="btnVerComoFicou" class="btn-submit-clean" style="background: #22c55e; cursor: pointer;">
+                  👀 Ver tela oficial de "Encontrei o Pet"
+                </button>
               </div>
-            `;
-            const btnVer = document.getElementById('btnVerComoFicou');
-            if (btnVer) {
-              btnVer.addEventListener('click', () => {
-                window.location.reload();
-              });
-            }
-          } catch (err) {
-            alert('Erro ao salvar no banco de dados na nuvem: ' + err.message);
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            </div>
+          `;
+          const btnVer = document.getElementById('btnVerComoFicou');
+          if (btnVer) {
+            btnVer.addEventListener('click', () => {
+              window.location.reload();
+            });
           }
-        };
-      }
+        } catch (err) {
+          alert('Erro ao salvar no banco de dados na nuvem: ' + err.message);
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      };
     }
   }
 
@@ -1384,4 +1446,5 @@ PET-005,${baseUrl}/p/PET-005`;
     init();
   }
 })();
+
 

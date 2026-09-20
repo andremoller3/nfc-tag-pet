@@ -1692,8 +1692,20 @@ body.pet-mode .app-background {
   display: inline-block;
 }
 
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.shake {
+  animation: shake 0.35s ease-in-out;
+  border-color: #ef4444 !important;
+}
+
 .modal-wide {
   max-width: 820px;
 }
+
 
 
