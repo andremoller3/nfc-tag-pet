@@ -1,0 +1,30 @@
+{
+  "name": "nfc-tag-pet-producao",
+  "version": "1.0.0",
+  "description": "Gerador de QR Codes SVG para fatiador 3D (Bambu Studio) e planilha de produção de coleiras NFC",
+  "main": "gerar-producao.js",
+  "scripts": {
+    "start": "serve .",
+    "dev": "serve .",
+    "build": "node -e \"console.log('Build estático pronto para Vercel')\"",
+    "gerar": "node gerar-producao.js"
+  },
+  "keywords": [
+    "nfc",
+    "pet",
+    "qr-code",
+    "svg",
+    "bambu-studio",
+    "3d-print",
+    "manifest"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
