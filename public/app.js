@@ -18,15 +18,31 @@
 
   // Elementos do DOM
   const dom = {
-    // Importação
+    // Abas de Modo
+    tabDirect: document.getElementById('tabDirect'),
     tabDrop: document.getElementById('tabDrop'),
     tabPaste: document.getElementById('tabPaste'),
     btnLoadExample: document.getElementById('btnLoadExample'),
+
+    // Zonas
+    directZone: document.getElementById('directZone'),
     dropZone: document.getElementById('dropZone'),
     pasteZone: document.getElementById('pasteZone'),
+
+    // Formulário Direto
+    directBaseUrl: document.getElementById('directBaseUrl'),
+    directQty: document.getElementById('directQty'),
+    btnGenerateDirect: document.getElementById('btnGenerateDirect'),
+    prefixConfigRow: document.getElementById('prefixConfigRow'),
+    idPrefix: document.getElementById('idPrefix'),
+    startNum: document.getElementById('startNum'),
+
+    // Formulário CSV / Paste
     fileInput: document.getElementById('fileInput'),
     csvTextarea: document.getElementById('csvTextarea'),
     btnProcessPaste: document.getElementById('btnProcessPaste'),
+
+    // Feedback
     fileFeedback: document.getElementById('fileFeedback'),
     fileNameDisplay: document.getElementById('fileNameDisplay'),
     fileCountDisplay: document.getElementById('fileCountDisplay'),
@@ -35,6 +51,8 @@
     // Produção
     productionSection: document.getElementById('productionSection'),
     batchDateLabel: document.getElementById('batchDateLabel'),
+    btnAddSingleTag: document.getElementById('btnAddSingleTag'),
+    btnDownloadLoteCsv: document.getElementById('btnDownloadLoteCsv'),
     btnDownloadZip: document.getElementById('btnDownloadZip'),
     btnDownloadManifest: document.getElementById('btnDownloadManifest'),
     
@@ -71,137 +89,336 @@
     previewSvgContainer: document.getElementById('previewSvgContainer'),
     previewDetailId: document.getElementById('previewDetailId'),
     previewDetailUrl: document.getElementById('previewDetailUrl'),
-    btnDownloadCurrentSvg: document.getElementById('btnDownloadCurrentSvg')
+    btnDownloadCurrentSvg: document.getElementById('btnDownloadCurrentSvg'),
+
+    // Modal Tag Avulsa
+    modalAddTag: document.getElementById('modalAddTag'),
+    btnCloseAddTag: document.getElementById('btnCloseAddTag'),
+    btnCancelAddTag: document.getElementById('btnCancelAddTag'),
+    btnConfirmAddTag: document.getElementById('btnConfirmAddTag'),
+    singleTagId: document.getElementById('singleTagId'),
+    singleTagUrl: document.getElementById('singleTagUrl'),
+    btnGenRandomSingleId: document.getElementById('btnGenRandomSingleId')
   };
+
+  // Gerador de ID aleatório de 6 caracteres (padrão oficial do Worker)
+  function generateRandomId(length = 6) {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    const bytes = new Uint8Array(length);
+    if (window.crypto && window.crypto.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+  }
 
   // Inicialização
   function init() {
+    // Restaurar URL Base salva se houver
+    const savedBaseUrl = localStorage.getItem('pet_nfc_base_url');
+    if (savedBaseUrl && dom.directBaseUrl) {
+      dom.directBaseUrl.value = savedBaseUrl;
+    }
+
     setupEventListeners();
     dom.batchDateLabel.textContent = `Data do lote: ${state.batchDate}`;
   }
 
   // Configuração dos Eventos
   function setupEventListeners() {
-    // Alternar abas de importação
-    dom.tabDrop.addEventListener('click', () => switchImportTab('drop'));
-    dom.tabPaste.addEventListener('click', () => switchImportTab('paste'));
+    // Alternar abas
+    if (dom.tabDirect) dom.tabDirect.addEventListener('click', () => switchTab('direct'));
+    if (dom.tabDrop) dom.tabDrop.addEventListener('click', () => switchTab('drop'));
+    if (dom.tabPaste) dom.tabPaste.addEventListener('click', () => switchTab('paste'));
+    if (dom.btnLoadExample) dom.btnLoadExample.addEventListener('click', loadExampleData);
+
+    // Presets de quantidade no gerador direto
+    document.querySelectorAll('.btn-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (dom.directQty) dom.directQty.value = btn.dataset.qty;
+      });
+    });
+
+    if (dom.directQty) {
+      dom.directQty.addEventListener('input', () => {
+        document.querySelectorAll('.btn-preset').forEach(b => {
+          b.classList.toggle('active', b.dataset.qty === dom.directQty.value);
+        });
+      });
+    }
+
+    // Alternar formato de ID (aleatório vs sequencial)
+    document.querySelectorAll('input[name="idFormat"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (dom.prefixConfigRow) {
+          dom.prefixConfigRow.classList.toggle('hidden', radio.value !== 'sequential');
+        }
+      });
+    });
+
+    // Botão de Gerar Lote Direto
+    if (dom.btnGenerateDirect) {
+      dom.btnGenerateDirect.addEventListener('click', generateDirectBatch);
+    }
 
     // Drag & Drop
-    dom.dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dom.dropZone.classList.add('dragover');
-    });
+    if (dom.dropZone) {
+      dom.dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dom.dropZone.classList.add('dragover');
+      });
 
-    dom.dropZone.addEventListener('dragleave', () => {
-      dom.dropZone.classList.remove('dragover');
-    });
+      dom.dropZone.addEventListener('dragleave', () => {
+        dom.dropZone.classList.remove('dragover');
+      });
 
-    dom.dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dom.dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleFileSelect(e.dataTransfer.files[0]);
-      }
-    });
+      dom.dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dom.dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFileSelect(e.dataTransfer.files[0]);
+        }
+      });
 
-    // Clique na dropzone para abrir seletor
-    dom.dropZone.addEventListener('click', (e) => {
-      if (e.target !== dom.fileInput) {
-        dom.fileInput.click();
-      }
-    });
+      dom.dropZone.addEventListener('click', (e) => {
+        if (e.target !== dom.fileInput) {
+          dom.fileInput.click();
+        }
+      });
+    }
 
-    dom.fileInput.addEventListener('change', (e) => {
-      if (e.target.files && e.target.files.length > 0) {
-        handleFileSelect(e.target.files[0]);
-      }
-    });
+    if (dom.fileInput) {
+      dom.fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleFileSelect(e.target.files[0]);
+        }
+      });
+    }
 
     // Colar texto
-    dom.btnProcessPaste.addEventListener('click', () => {
-      const text = dom.csvTextarea.value.trim();
-      if (!text) {
-        alert('Por favor, cole o conteúdo do CSV com cabeçalho id,url');
-        return;
-      }
-      processCsvContent(text, 'texto-colado.csv');
-    });
-
-    // Exemplo de demonstração
-    dom.btnLoadExample.addEventListener('click', loadExampleData);
+    if (dom.btnProcessPaste) {
+      dom.btnProcessPaste.addEventListener('click', () => {
+        const text = dom.csvTextarea.value.trim();
+        if (!text) {
+          alert('Por favor, cole o conteúdo do CSV com cabeçalho id,url');
+          return;
+        }
+        processCsvContent(text, 'texto-colado.csv');
+      });
+    }
 
     // Resetar / Trocar arquivo
-    dom.btnResetFile.addEventListener('click', resetData);
+    if (dom.btnResetFile) dom.btnResetFile.addEventListener('click', resetData);
 
     // Filtros e busca
-    dom.searchInput.addEventListener('input', (e) => {
-      state.searchQuery = e.target.value.toLowerCase().trim();
-      renderTags();
-    });
+    if (dom.searchInput) {
+      dom.searchInput.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value.toLowerCase().trim();
+        renderTags();
+      });
+    }
 
-    dom.filterStatus.addEventListener('change', (e) => {
-      state.statusFilter = e.target.value;
-      renderTags();
-    });
+    if (dom.filterStatus) {
+      dom.filterStatus.addEventListener('change', (e) => {
+        state.statusFilter = e.target.value;
+        renderTags();
+      });
+    }
 
     // Modos de visualização (Grid vs Tabela)
-    dom.btnViewGrid.addEventListener('click', () => setViewMode('grid'));
-    dom.btnViewTable.addEventListener('click', () => setViewMode('table'));
+    if (dom.btnViewGrid) dom.btnViewGrid.addEventListener('click', () => setViewMode('grid'));
+    if (dom.btnViewTable) dom.btnViewTable.addEventListener('click', () => setViewMode('table'));
 
-    // Downloads
-    dom.btnDownloadZip.addEventListener('click', downloadBatchZip);
-    dom.btnDownloadManifest.addEventListener('click', downloadManifestCsv);
+    // Downloads e Ações
+    if (dom.btnDownloadZip) dom.btnDownloadZip.addEventListener('click', downloadBatchZip);
+    if (dom.btnDownloadManifest) dom.btnDownloadManifest.addEventListener('click', downloadManifestCsv);
+    if (dom.btnDownloadLoteCsv) dom.btnDownloadLoteCsv.addEventListener('click', downloadLoteTagsCsv);
 
-    // Modais
-    dom.btnOpenGuide.addEventListener('click', () => openModal(dom.modalGuide));
-    dom.btnCloseGuide.addEventListener('click', () => closeModal(dom.modalGuide));
-    dom.btnOkGuide.addEventListener('click', () => closeModal(dom.modalGuide));
+    // Modal de Tag Avulsa
+    if (dom.btnAddSingleTag) dom.btnAddSingleTag.addEventListener('click', openAddSingleTagModal);
+    if (dom.btnCloseAddTag) dom.btnCloseAddTag.addEventListener('click', () => closeModal(dom.modalAddTag));
+    if (dom.btnCancelAddTag) dom.btnCancelAddTag.addEventListener('click', () => closeModal(dom.modalAddTag));
+    if (dom.btnConfirmAddTag) dom.btnConfirmAddTag.addEventListener('click', confirmAddSingleTag);
+    if (dom.btnGenRandomSingleId) dom.btnGenRandomSingleId.addEventListener('click', generateSingleRandomId);
 
-    dom.btnOpenDeploy.addEventListener('click', () => openModal(dom.modalDeploy));
-    dom.btnCloseDeploy.addEventListener('click', () => closeModal(dom.modalDeploy));
-    dom.btnOkDeploy.addEventListener('click', () => closeModal(dom.modalDeploy));
+    if (dom.singleTagId) {
+      dom.singleTagId.addEventListener('input', (e) => {
+        const id = e.target.value.trim();
+        const baseUrl = getBaseUrl();
+        if (dom.singleTagUrl) {
+          dom.singleTagUrl.value = id ? `${baseUrl}/p/${id}` : '';
+        }
+      });
+    }
 
-    dom.btnClosePreview.addEventListener('click', () => closeModal(dom.modalPreview));
-    dom.btnClosePreviewBtn.addEventListener('click', () => closeModal(dom.modalPreview));
-    dom.btnDownloadCurrentSvg.addEventListener('click', () => {
-      if (state.previewRecord) {
-        downloadSingleSvg(state.previewRecord);
-      }
-    });
+    // Modais gerais
+    if (dom.btnOpenGuide) dom.btnOpenGuide.addEventListener('click', () => openModal(dom.modalGuide));
+    if (dom.btnCloseGuide) dom.btnCloseGuide.addEventListener('click', () => closeModal(dom.modalGuide));
+    if (dom.btnOkGuide) dom.btnOkGuide.addEventListener('click', () => closeModal(dom.modalGuide));
 
-    // Fechar modais ao clicar no overlay
+    if (dom.btnOpenDeploy) dom.btnOpenDeploy.addEventListener('click', () => openModal(dom.modalDeploy));
+    if (dom.btnCloseDeploy) dom.btnCloseDeploy.addEventListener('click', () => closeModal(dom.modalDeploy));
+    if (dom.btnOkDeploy) dom.btnOkDeploy.addEventListener('click', () => closeModal(dom.modalDeploy));
+
+    if (dom.btnClosePreview) dom.btnClosePreview.addEventListener('click', () => closeModal(dom.modalPreview));
+    if (dom.btnClosePreviewBtn) dom.btnClosePreviewBtn.addEventListener('click', () => closeModal(dom.modalPreview));
+    if (dom.btnDownloadCurrentSvg) {
+      dom.btnDownloadCurrentSvg.addEventListener('click', () => {
+        if (state.previewRecord) {
+          downloadSingleSvg(state.previewRecord);
+        }
+      });
+    }
+
+    // Fechar modais ao clicar no overlay ou com ESC
     window.addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-overlay')) {
         closeModal(e.target);
       }
     });
 
-    // Fechar com tecla ESC
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeModal(dom.modalGuide);
         closeModal(dom.modalDeploy);
         closeModal(dom.modalPreview);
+        closeModal(dom.modalAddTag);
       }
     });
   }
 
-  // Alternar abas
-  function switchImportTab(mode) {
-    if (mode === 'drop') {
-      dom.tabDrop.classList.add('active');
-      dom.tabPaste.classList.remove('active');
-      dom.dropZone.classList.remove('hidden');
-      dom.pasteZone.classList.add('hidden');
-    } else {
-      dom.tabDrop.classList.remove('active');
-      dom.tabPaste.classList.add('active');
-      dom.dropZone.classList.add('hidden');
-      dom.pasteZone.classList.remove('hidden');
+  // Alternar Abas (Direto, Subir CSV, Colar Texto)
+  function switchTab(mode) {
+    [dom.tabDirect, dom.tabDrop, dom.tabPaste].forEach(t => t && t.classList.remove('active'));
+    [dom.directZone, dom.dropZone, dom.pasteZone].forEach(z => z && z.classList.add('hidden'));
+
+    if (mode === 'direct') {
+      if (dom.tabDirect) dom.tabDirect.classList.add('active');
+      if (dom.directZone) dom.directZone.classList.remove('hidden');
+    } else if (mode === 'drop') {
+      if (dom.tabDrop) dom.tabDrop.classList.add('active');
+      if (dom.dropZone) dom.dropZone.classList.remove('hidden');
+    } else if (mode === 'paste') {
+      if (dom.tabPaste) dom.tabPaste.classList.add('active');
+      if (dom.pasteZone) dom.pasteZone.classList.remove('hidden');
     }
   }
 
-  // Manipular arquivo recebido
+  // Retorna a URL base limpa
+  function getBaseUrl() {
+    let url = dom.directBaseUrl ? dom.directBaseUrl.value.trim() : '';
+    if (!url) url = 'https://pet-nfc.workers.dev';
+    return url.replace(/\/+$/, '');
+  }
+
+  // Gerar Lote Direto (Sem CSV)
+  function generateDirectBatch() {
+    const baseUrl = getBaseUrl();
+    if (dom.directBaseUrl) dom.directBaseUrl.value = baseUrl;
+    localStorage.setItem('pet_nfc_base_url', baseUrl);
+
+    const qty = Math.min(500, Math.max(1, parseInt(dom.directQty.value, 10) || 20));
+    const formatRadio = document.querySelector('input[name="idFormat"]:checked');
+    const format = formatRadio ? formatRadio.value : 'random';
+
+    const records = [];
+    const existingIds = new Set();
+
+    let currentNum = parseInt(dom.startNum ? dom.startNum.value : '1', 10) || 1;
+    const prefix = dom.idPrefix ? dom.idPrefix.value.trim() : 'PET-';
+
+    for (let i = 0; i < qty; i++) {
+      let id;
+      if (format === 'random') {
+        do {
+          id = generateRandomId(6);
+        } while (existingIds.has(id));
+      } else {
+        id = `${prefix}${String(currentNum + i).padStart(3, '0')}`;
+      }
+      existingIds.add(id);
+
+      const tagUrl = `${baseUrl}/p/${id}`;
+      records.push({
+        id: id,
+        url: tagUrl,
+        arquivoQr: `qrs/${id}.svg`,
+        status: 'pendente',
+        svgString: null
+      });
+    }
+
+    records.sort((a, b) => a.id.localeCompare(b.id));
+
+    // Gerar SVGs
+    generateSvgsForRecords(records);
+    state.records = records;
+
+    // Atualizar UI
+    dom.fileNameDisplay.textContent = `Lote de ${records.length} tags gerado direto`;
+    dom.fileCountDisplay.textContent = `${records.length} tags`;
+    dom.fileFeedback.classList.remove('hidden');
+    dom.productionSection.classList.remove('hidden');
+
+    updateMetrics();
+    renderTags();
+
+    // Rolar suavemente para o lote de produção ativo
+    dom.productionSection.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Abrir Modal de Tag Avulsa
+  function openAddSingleTagModal() {
+    const randomId = generateRandomId(6);
+    const baseUrl = getBaseUrl();
+    if (dom.singleTagId) dom.singleTagId.value = randomId;
+    if (dom.singleTagUrl) dom.singleTagUrl.value = `${baseUrl}/p/${randomId}`;
+    openModal(dom.modalAddTag);
+  }
+
+  function generateSingleRandomId() {
+    const randomId = generateRandomId(6);
+    const baseUrl = getBaseUrl();
+    if (dom.singleTagId) dom.singleTagId.value = randomId;
+    if (dom.singleTagUrl) dom.singleTagUrl.value = `${baseUrl}/p/${randomId}`;
+  }
+
+  function confirmAddSingleTag() {
+    const id = dom.singleTagId.value.trim();
+    const url = dom.singleTagUrl.value.trim();
+
+    if (!id || !url) {
+      alert('Por favor, preencha o ID e a URL da tag.');
+      return;
+    }
+
+    if (state.records.some(r => r.id.toLowerCase() === id.toLowerCase())) {
+      alert(`A tag com o ID "${id}" já existe neste lote.`);
+      return;
+    }
+
+    const newRecord = {
+      id: id,
+      url: url,
+      arquivoQr: `qrs/${id}.svg`,
+      status: 'pendente',
+      svgString: null
+    };
+
+    generateSvgsForRecords([newRecord]);
+    state.records.push(newRecord);
+    state.records.sort((a, b) => a.id.localeCompare(b.id));
+
+    dom.fileCountDisplay.textContent = `${state.records.length} tags`;
+    updateMetrics();
+    renderTags();
+    closeModal(dom.modalAddTag);
+  }
+
+  // Manipular arquivo CSV selecionado
   function handleFileSelect(file) {
     if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
       alert('Por favor, selecione um arquivo .csv válido.');
@@ -235,7 +452,6 @@ PET-005,https://nfc.pet/t/PET-005`;
       return;
     }
 
-    // Detectar delimitador (, ou ;)
     const headerLine = rawLines[0];
     const delimiter = headerLine.includes(';') ? ';' : ',';
     const headerCols = headerLine.split(delimiter).map(c => c.trim().toLowerCase().replace(/"/g, ''));
@@ -278,15 +494,10 @@ PET-005,https://nfc.pet/t/PET-005`;
       return;
     }
 
-    // Ordenar alfabeticamente por ID (conforme o script gerar-producao.js)
     records.sort((a, b) => a.id.localeCompare(b.id));
-
-    // Gerar SVGs para cada tag usando a lib QRCode
     generateSvgsForRecords(records);
-
     state.records = records;
 
-    // Atualizar UI
     dom.fileNameDisplay.textContent = fileName;
     dom.fileCountDisplay.textContent = `${records.length} tags`;
     dom.fileFeedback.classList.remove('hidden');
@@ -296,7 +507,7 @@ PET-005,https://nfc.pet/t/PET-005`;
     renderTags();
   }
 
-  // Geração dos SVGs no cliente (compatível com Node e Bambu Studio)
+  // Geração dos SVGs no cliente
   function generateSvgsForRecords(records) {
     const qrEngine = window.QRCodeSvg || window.QRCode;
 
@@ -308,7 +519,6 @@ PET-005,https://nfc.pet/t/PET-005`;
 
     records.forEach(record => {
       try {
-        // Gera SVG com correção 'M' e margem 1 (idêntico ao gerar-producao.js)
         const svg = qrEngine.toString(record.url, {
           type: 'svg',
           margin: 1,
@@ -437,7 +647,6 @@ PET-005,https://nfc.pet/t/PET-005`;
       </div>
     `;
 
-    // Eventos do Card
     const select = card.querySelector('.status-pill-select');
     select.addEventListener('change', (e) => {
       const newStatus = e.target.value;
@@ -521,7 +730,6 @@ PET-005,https://nfc.pet/t/PET-005`;
         </td>
       `;
 
-      // Eventos da Linha
       const select = tr.querySelector('.status-pill-select');
       select.addEventListener('change', (e) => {
         const newStatus = e.target.value;
@@ -581,6 +789,25 @@ PET-005,https://nfc.pet/t/PET-005`;
     URL.revokeObjectURL(url);
   }
 
+  // Download do lote-tags.csv
+  function downloadLoteTagsCsv() {
+    if (state.records.length === 0) return;
+
+    const header = 'id,url\n';
+    const lines = state.records.map(r => `${r.id},${r.url}`).join('\n');
+
+    const csvContent = header + lines;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lote-tags-${state.batchDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   // Download do Manifest CSV
   function downloadManifestCsv() {
     if (state.records.length === 0) return;
@@ -627,33 +854,27 @@ PET-005,https://nfc.pet/t/PET-005`;
     try {
       const zip = new JSZip();
 
-      // Estrutura idêntica ao README.md:
-      // producao/<data>/qrs/<id>.svg e producao/<data>/manifest.csv
       const folderName = `producao/${state.batchDate}`;
       const qrsFolder = zip.folder(`${folderName}/qrs`);
 
-      // Adicionar SVGs
       state.records.forEach(r => {
         if (r.svgString) {
           qrsFolder.file(`${r.id}.svg`, r.svgString);
         }
       });
 
-      // Gerar e adicionar manifest.csv
       const headerManifest = 'id,url,arquivo_qr,status\n';
       const linesManifest = state.records
         .map(r => `${r.id},${r.url},${r.arquivoQr},${r.status}`)
         .join('\n');
       zip.file(`${folderName}/manifest.csv`, headerManifest + linesManifest);
 
-      // Gerar o blob do ZIP
       const zipBlob = await zip.generateAsync({
         type: 'blob',
         compression: 'DEFLATE',
         compressionOptions: { level: 6 }
       });
 
-      // Baixar arquivo ZIP
       const zipUrl = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = zipUrl;
@@ -672,15 +893,15 @@ PET-005,https://nfc.pet/t/PET-005`;
     }
   }
 
-  // Resetar dados para carregar outro arquivo
+  // Resetar dados para carregar outro lote
   function resetData() {
     state.records = [];
     dom.fileFeedback.classList.add('hidden');
     dom.productionSection.classList.add('hidden');
-    dom.fileInput.value = '';
-    dom.csvTextarea.value = '';
-    dom.searchInput.value = '';
-    dom.filterStatus.value = 'todos';
+    if (dom.fileInput) dom.fileInput.value = '';
+    if (dom.csvTextarea) dom.csvTextarea.value = '';
+    if (dom.searchInput) dom.searchInput.value = '';
+    if (dom.filterStatus) dom.filterStatus.value = 'todos';
   }
 
   // Utilitários de Modal

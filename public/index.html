@@ -75,25 +75,86 @@
     </section>
 
     <!-- Área de Importação (Passo 1) -->
+    <!-- Área de Criação e Importação (Passo 1) -->
     <section class="card upload-card" id="uploadSection">
       <div class="card-header">
         <div class="step-indicator">
           <span class="step-num">1</span>
           <div>
-            <h2 class="card-title">Importar Arquivo do Lote (CSV)</h2>
-            <p class="card-subtitle">Baixado no botão "Baixar CSV para impressão" do painel <code>/admin</code></p>
+            <h2 class="card-title">Criar ou Importar Lote de Tags</h2>
+            <p class="card-subtitle">Gere as tags com 1 clique direto na aplicação ou importe um CSV existente</p>
           </div>
         </div>
 
         <div class="upload-mode-toggle">
-          <button id="tabDrop" class="tab-btn active">Arquivo CSV</button>
-          <button id="tabPaste" class="tab-btn">Colar Texto</button>
-          <button id="btnLoadExample" class="tab-btn btn-example" title="Testar com dados de demonstração">Carregar Exemplo</button>
+          <button id="tabDirect" class="tab-btn active">⚡ Gerar Direto</button>
+          <button id="tabDrop" class="tab-btn">📁 Subir CSV</button>
+          <button id="tabPaste" class="tab-btn">📝 Colar Texto</button>
+          <button id="btnLoadExample" class="tab-btn btn-example" title="Testar com dados de demonstração">Exemplo (5 tags)</button>
         </div>
       </div>
 
-      <!-- Zona de Drag & Drop -->
-      <div id="dropZone" class="drop-zone">
+      <!-- Zona de Geração Direta (Padrão) -->
+      <div id="directZone" class="direct-zone">
+        <div class="direct-form-grid">
+          <div class="form-group">
+            <label for="directBaseUrl">URL Base do Sistema (Cloudflare Worker ou Domínio)</label>
+            <input type="url" id="directBaseUrl" placeholder="https://pet-nfc.workers.dev" value="https://pet-nfc.workers.dev" class="styled-input" />
+            <span class="field-hint">Cada tag terá o link: <code>{url_base}/p/{id}</code></span>
+          </div>
+
+          <div class="form-group">
+            <label for="directQty">Quantidade de Tags</label>
+            <div class="qty-control-row">
+              <input type="number" id="directQty" min="1" max="500" value="20" class="input-number" />
+              <div class="qty-presets">
+                <button type="button" class="btn-preset" data-qty="5">5</button>
+                <button type="button" class="btn-preset" data-qty="10">10</button>
+                <button type="button" class="btn-preset active" data-qty="20">20</button>
+                <button type="button" class="btn-preset" data-qty="50">50</button>
+                <button type="button" class="btn-preset" data-qty="100">100</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group full-width">
+            <label>Padrão de Identificação (ID)</label>
+            <div class="id-pattern-row">
+              <label class="radio-label">
+                <input type="radio" name="idFormat" value="random" checked />
+                <span>Aleatório 6 caracteres (ex: <code>a1b2c3</code> — padrão Worker)</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="idFormat" value="sequential" />
+                <span>Prefixo Sequencial (ex: <code>PET-001</code>)</span>
+              </label>
+            </div>
+
+            <div id="prefixConfigRow" class="prefix-config-row hidden">
+              <div class="prefix-input-wrap">
+                <label for="idPrefix">Prefixo:</label>
+                <input type="text" id="idPrefix" value="PET-" maxlength="10" class="styled-input input-sm" />
+              </div>
+              <div class="prefix-input-wrap">
+                <label for="startNum">Número inicial:</label>
+                <input type="number" id="startNum" value="1" min="1" max="99999" class="styled-input input-sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="direct-actions">
+          <button id="btnGenerateDirect" class="btn btn-glow-primary btn-large">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Criar Lote de Tags Agora
+          </button>
+        </div>
+      </div>
+
+      <!-- Zona de Drag & Drop (CSV) -->
+      <div id="dropZone" class="drop-zone hidden">
         <input type="file" id="fileInput" accept=".csv,text/csv" class="file-input-hidden" />
         <div class="drop-icon">
           <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -123,10 +184,10 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
-          <span id="fileNameDisplay">lote-tags.csv</span>
+          <span id="fileNameDisplay">Lote gerado</span>
           <span id="fileCountDisplay" class="count-pill">0 tags</span>
         </div>
-        <button id="btnResetFile" class="btn btn-sm btn-ghost" title="Carregar outro arquivo">Trocar arquivo</button>
+        <button id="btnResetFile" class="btn btn-sm btn-ghost" title="Limpar lote atual">Novo lote</button>
       </div>
     </section>
 
@@ -142,6 +203,19 @@
         </div>
 
         <div class="production-actions">
+          <button id="btnAddSingleTag" class="btn btn-outline" title="Adicionar uma tag avulsa para reposição">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            + Tag Avulsa
+          </button>
+          <button id="btnDownloadLoteCsv" class="btn btn-secondary" title="Baixar arquivo lote-tags.csv para backup ou registro">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Baixar lote-tags.csv
+          </button>
           <button id="btnDownloadZip" class="btn btn-glow-primary">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -371,6 +445,39 @@
           </svg>
           Baixar este SVG
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Adicionar Tag Avulsa -->
+  <div id="modalAddTag" class="modal-overlay hidden">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="badge badge-prod">REPOSIÇÃO</span>
+          <h3>Adicionar Tag Avulsa</h3>
+        </div>
+        <button class="modal-close" id="btnCloseAddTag">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom: 0.5rem;">
+          Útil para repor uma peça descartada ou adicionar novas tags ao lote de produção ativo.
+        </p>
+        <div class="form-group">
+          <label for="singleTagId">ID da Tag</label>
+          <div class="input-action-row">
+            <input type="text" id="singleTagId" placeholder="ex: 8k2f9a ou PET-099" class="styled-input" />
+            <button type="button" id="btnGenRandomSingleId" class="btn btn-secondary btn-sm" title="Gerar ID aleatório">Gerar ID</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="singleTagUrl">URL Completa da Tag</label>
+          <input type="url" id="singleTagUrl" placeholder="https://pet-nfc.workers.dev/p/..." class="styled-input" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelAddTag">Cancelar</button>
+        <button class="btn btn-primary" id="btnConfirmAddTag">Adicionar ao Lote</button>
       </div>
     </div>
   </div>
