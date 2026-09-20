@@ -514,36 +514,74 @@
   <!-- Container da Página do Pet (Ativado quando a rota for /p/:id) -->
   <div id="petPublicContainer" class="pet-public-container hidden">
     <!-- Estado de Carregamento Inicial -->
-    <div id="petLoadingState" class="card pet-card">
-      <div class="pet-header-icon spin">🐾</div>
-      <h2 class="pet-title">Verificando Tag...</h2>
-      <p class="pet-desc">Consultando banco de dados na nuvem.</p>
+    <div id="petLoadingState" class="pet-card">
+      <div class="spin" style="font-size: 2.5rem; margin-bottom: 8px;">🐾</div>
+      <h2 class="pet-headline" style="font-size: 1.25rem;">Verificando Tag...</h2>
+      <p style="font-size: 0.88rem; color: #64748b; margin: 0;">Consultando identificação do pet na nuvem.</p>
     </div>
+
     <!-- Card de Cadastro Direto (quando a tag ainda não tem dono) -->
-    <div id="cardCadastroPet" class="card pet-card hidden">
-      <div class="pet-header-icon">🐾</div>
-      <h1 class="pet-title">Esta identificação ainda não tem dono</h1>
-      <p class="pet-desc">Preencha os dados abaixo para vincular esta tag ao seu pet. A partir daí, quem escanear entrará em contato direto com você pelo WhatsApp.</p>
-      
-      <form id="formCadastroPet" class="pet-form">
-        <div class="form-group">
-          <label for="petNome">Nome do Pet *</label>
-          <input type="text" id="petNome" required maxlength="40" placeholder="ex: Thor, Luna, Bob" class="styled-input" />
+    <div id="cardCadastroPet" class="pet-card hidden">
+      <div style="font-size: 2.4rem; margin-bottom: 2px;">🐾</div>
+      <h1 class="pet-headline" style="font-size: 1.35rem;">Cadastrar Identificação</h1>
+      <p style="font-size: 0.88rem; color: #64748b; margin: 0 0 4px 0; line-height: 1.4;">
+        Vincule esta coleira ao seu pet. Quem escanear a tag verá a foto e falará diretamente com você.
+      </p>
+
+      <form id="formCadastroPet" class="pet-form-clean">
+        <!-- Sexo do Pet (Macho / Fêmea) -->
+        <div>
+          <label class="form-label-clean">O pet é Macho ou Fêmea? *</label>
+          <div class="gender-selector-grid">
+            <label class="gender-option">
+              <input type="radio" name="petSexo" value="macho" checked />
+              <div class="gender-card macho">
+                <span>♂️</span>
+                <span>Macho</span>
+              </div>
+            </label>
+            <label class="gender-option">
+              <input type="radio" name="petSexo" value="femea" />
+              <div class="gender-card femea">
+                <span>♀️</span>
+                <span>Fêmea</span>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="petTelefone">WhatsApp do Dono (com DDD) *</label>
-          <input type="tel" id="petTelefone" required placeholder="(11) 99999-9999" class="styled-input" />
+        <!-- Nome do Pet -->
+        <div>
+          <label for="petNome" class="form-label-clean">Nome do Pet *</label>
+          <input type="text" id="petNome" required maxlength="40" placeholder="ex: Adele, Thor, Luna, Bob..." class="input-clean" />
         </div>
 
-        <div class="form-group">
-          <label for="petFoto">Foto do Pet (opcional)</label>
-          <input type="file" id="petFoto" accept="image/*" class="styled-file-input" />
-          <img id="petFotoPreview" class="pet-foto-preview hidden" alt="Preview da Foto" />
+        <!-- Telefone do Dono -->
+        <div>
+          <label for="petTelefone" class="form-label-clean">WhatsApp do Tutor (com DDD) *</label>
+          <input type="tel" id="petTelefone" required placeholder="(22) 99235-2529" class="input-clean" />
         </div>
 
-        <button type="submit" id="btnCadastrarPet" class="btn btn-glow-primary btn-large btn-full">
-          Cadastrar Meu Pet
+        <!-- Foto do Pet -->
+        <div>
+          <label class="form-label-clean">Foto do Pet (opcional)</label>
+          <div class="upload-clean-area" id="areaUploadFoto">
+            <input type="file" id="petFoto" accept="image/*" style="display:none;" />
+            <div id="fotoPromptText">
+              <span style="font-size: 1.8rem; display: block; margin-bottom: 4px;">📷</span>
+              <span style="font-size: 0.85rem; font-weight: 600; color: #475569;">Toque aqui para escolher a foto</span>
+            </div>
+            <div id="fotoPreviewWrapper" class="hidden">
+              <div class="pet-photo-frame" style="max-width: 200px; margin-top: 6px;">
+                <img id="petFotoPreview" class="pet-photo-img" alt="Preview da Foto" />
+              </div>
+              <span style="display: block; font-size: 0.78rem; color: #64748b; margin-top: 6px;">Toque para trocar a foto</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" id="btnCadastrarPet" class="btn-submit-clean">
+          Cadastrar Meu Pet 🐾
         </button>
       </form>
 
@@ -551,24 +589,51 @@
     </div>
 
     <!-- Card de Pet Encontrado (quando a tag já está cadastrada) -->
-    <div id="cardEncontreiPet" class="card pet-card hidden">
-      <img id="encontreiFoto" class="pet-foto-preview hidden" alt="Foto do Pet" />
-      <h1 id="encontreiTitulo" class="pet-title">Encontrei o Pet!</h1>
-      <p id="encontreiStatus" class="pet-desc">Obtendo sua localização para avisar o dono...</p>
-      
-      <a id="btnAvisarWhats" href="#" class="btn btn-glow-primary btn-large btn-full hidden">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <div id="cardEncontreiPet" class="pet-card hidden">
+      <!-- Título Topo: ex: Você encontrou a ADELE! 🐶 -->
+      <h1 id="encontreiTitulo" class="pet-headline">Você encontrou a ADELE! 🐶</h1>
+
+      <!-- Foto do Pet -->
+      <div id="encontreiFotoWrap" class="pet-photo-frame">
+        <img id="encontreiFoto" class="pet-photo-img" alt="Foto do Pet" src="" />
+      </div>
+
+      <!-- Telefone do Tutor -->
+      <div class="pet-tutor-box">
+        <span class="label-tutor">TELEFONE DO TUTOR</span>
+        <div class="tutor-phone-number">
+          <a id="tutorPhoneLink" href="#">22992352529</a>
+        </div>
+        <a id="btnLigarTutor" href="#" class="btn-ligar-tutor">
+          📞 Ligar para o tutor
+        </a>
+      </div>
+
+      <!-- Box de Status de Localização (Verde) -->
+      <div id="encontreiLocationBox" class="pet-location-box">
+        <span id="locIcon" class="loc-icon">🛰️</span>
+        <div class="loc-content">
+          <strong id="locTitle">Obtendo sua localização...</strong>
+          <p id="locDesc">Aguarde um instante para incluir o mapa na mensagem.</p>
+        </div>
+      </div>
+
+      <!-- Botão Chamar no WhatsApp -->
+      <a id="btnAvisarWhats" href="#" class="btn-whatsapp-action">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/>
         </svg>
-        Avisar no WhatsApp
+        <span id="btnAvisarWhatsText">Chamar no WhatsApp (com mapa)</span>
       </a>
 
+      <!-- ID da Tag -->
       <div class="pet-extra-info">
         <span id="encontreiTagId">ID: PET-001</span>
       </div>
 
-      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-        <button type="button" id="btnEditarDadosTutor" class="btn btn-ghost btn-sm" style="font-size: 0.82rem; color: var(--text-dim); cursor: pointer;">
+      <!-- Botão Tutor Alterar Dados -->
+      <div style="margin-top: 4px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
+        <button type="button" id="btnEditarDadosTutor" class="btn-ligar-tutor" style="background: transparent; color: #94a3b8; font-size: 0.8rem;">
           ✏️ É o tutor deste pet? Alterar dados
         </button>
       </div>

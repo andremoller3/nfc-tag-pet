@@ -1150,6 +1150,9 @@ PET-005,${baseUrl}/p/PET-005`;
 
   // Fluxo da Página do Pet (/p/:id)
   async function initPetPublicFlow(petId) {
+    // Ativar modo limpo específico para visualização do Pet
+    document.body.classList.add('pet-mode');
+
     const appContainer = document.querySelector('.app-container');
     if (appContainer) appContainer.classList.add('hidden');
 
@@ -1170,29 +1173,62 @@ PET-005,${baseUrl}/p/PET-005`;
     if (loadingEl) loadingEl.classList.add('hidden');
 
     if (petData && petData.ativado) {
-      // Pet já cadastrado: mostrar tela de Encontrei o Pet
+      // Pet já cadastrado: mostrar tela de Encontrei o Pet no estilo exato da imagem
       cardEncontrei.classList.remove('hidden');
-      document.getElementById('encontreiTitulo').textContent = `Encontrei o ${escapeHtml(petData.nome)}!`;
+
+      const sexo = (petData.sexo || 'macho').toLowerCase();
+      const isFemea = sexo === 'femea';
+      const artigo = isFemea ? 'a' : 'o';
+      const nomePet = (petData.nome || 'Pet').trim();
+
+      // Título idêntico ao modelo: "Você encontrou a ADELE! 🐶" ou "Você encontrou o THOR! 🐶"
+      document.getElementById('encontreiTitulo').textContent = `Você encontrou ${artigo} ${nomePet.toUpperCase()}! 🐶`;
       document.getElementById('encontreiTagId').textContent = `ID da Tag: ${escapeHtml(petId)}`;
 
-      const fotoEl = document.getElementById('encontreiFoto');
-      if (petData.foto) {
-        fotoEl.src = petData.foto;
-        fotoEl.classList.remove('hidden');
-      } else {
-        fotoEl.classList.add('hidden');
+      // Telefone do Tutor
+      const telDisplay = petData.telefoneOriginal || petData.telefone || '';
+      const telLink = document.getElementById('tutorPhoneLink');
+      const btnLigar = document.getElementById('btnLigarTutor');
+      if (telLink) {
+        telLink.textContent = telDisplay;
+        telLink.href = `tel:${petData.telefone}`;
+      }
+      if (btnLigar) {
+        btnLigar.href = `tel:${petData.telefone}`;
       }
 
-      const btnAvisar = document.getElementById('btnAvisarWhats');
-      const statusEl = document.getElementById('encontreiStatus');
+      // Foto do Pet
+      const fotoEl = document.getElementById('encontreiFoto');
+      const fotoWrap = document.getElementById('encontreiFotoWrap');
+      if (petData.foto) {
+        fotoEl.src = petData.foto;
+        if (fotoWrap) fotoWrap.classList.remove('hidden');
+      } else {
+        if (fotoWrap) fotoWrap.classList.add('hidden');
+      }
 
-      function irParaWhats(localizacaoTexto = "") {
-        let msg = `Ola! Encontrei o ${petData.nome}!`;
-        if (localizacaoTexto) msg += ` Minha localizacao: ${localizacaoTexto}`;
-        const link = `https://wa.me/${petData.telefone}?text=${encodeURIComponent(msg)}`;
-        btnAvisar.href = link;
-        btnAvisar.classList.remove('hidden');
-        statusEl.textContent = "Clique abaixo para falar diretamente com o tutor no WhatsApp:";
+      // Localização e Botão WhatsApp
+      const locIcon = document.getElementById('locIcon');
+      const locTitle = document.getElementById('locTitle');
+      const locDesc = document.getElementById('locDesc');
+      const btnAvisar = document.getElementById('btnAvisarWhats');
+      const btnAvisarText = document.getElementById('btnAvisarWhatsText');
+
+      function atualizarAvisoWhats(localizacaoTexto = "") {
+        let msg = `Ola! Encontrei ${artigo} ${nomePet}!`;
+        if (localizacaoTexto) {
+          msg += ` Minha localizacao: ${localizacaoTexto}`;
+          if (locIcon) locIcon.textContent = '✅';
+          if (locTitle) locTitle.textContent = 'Localização pronta!';
+          if (locDesc) locDesc.textContent = 'O link do Google Maps será enviado na mensagem.';
+          if (btnAvisarText) btnAvisarText.textContent = 'Chamar no WhatsApp (com mapa)';
+        } else {
+          if (locIcon) locIcon.textContent = '💬';
+          if (locTitle) locTitle.textContent = 'Pronto para avisar!';
+          if (locDesc) locDesc.textContent = 'Clique no botão verde abaixo para abrir a conversa.';
+          if (btnAvisarText) btnAvisarText.textContent = 'Chamar no WhatsApp';
+        }
+        btnAvisar.href = `https://wa.me/${petData.telefone}?text=${encodeURIComponent(msg)}`;
       }
 
       if ("geolocation" in navigator) {
@@ -1200,13 +1236,13 @@ PET-005,${baseUrl}/p/PET-005`;
           (pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
-            irParaWhats(`https://maps.google.com/?q=${lat},${lon}`);
+            atualizarAvisoWhats(`https://maps.google.com/?q=${lat},${lon}`);
           },
-          () => { irParaWhats(); },
-          { timeout: 5000 }
+          () => { atualizarAvisoWhats(); },
+          { timeout: 6000, enableHighAccuracy: true }
         );
       } else {
-        irParaWhats();
+        atualizarAvisoWhats();
       }
 
       // Permitir que o tutor altere seus dados
@@ -1217,13 +1253,20 @@ PET-005,${baseUrl}/p/PET-005`;
           cardCadastro.classList.remove('hidden');
           document.getElementById('petNome').value = petData.nome || '';
           document.getElementById('petTelefone').value = petData.telefoneOriginal || petData.telefone || '';
+          
+          const radioSexo = document.querySelector(`input[name="petSexo"][value="${petData.sexo || 'macho'}"]`);
+          if (radioSexo) radioSexo.checked = true;
+
           if (petData.foto) {
-            const preview = document.getElementById('petFotoPreview');
-            preview.src = petData.foto;
-            preview.classList.remove('hidden');
+            document.getElementById('petFotoPreview').src = petData.foto;
+            const promptText = document.getElementById('fotoPromptText');
+            const previewWrap = document.getElementById('fotoPreviewWrapper');
+            if (promptText) promptText.classList.add('hidden');
+            if (previewWrap) previewWrap.classList.remove('hidden');
           }
+
           const submitBtn = document.getElementById('btnCadastrarPet');
-          if (submitBtn) submitBtn.textContent = 'Salvar Alterações';
+          if (submitBtn) submitBtn.textContent = 'Salvar Alterações 🐾';
         };
       }
     } else {
@@ -1231,8 +1274,17 @@ PET-005,${baseUrl}/p/PET-005`;
       cardCadastro.classList.remove('hidden');
 
       let fotoDataUrl = "";
+      const areaUpload = document.getElementById('areaUploadFoto');
       const fotoInput = document.getElementById('petFoto');
+      const promptText = document.getElementById('fotoPromptText');
+      const previewWrap = document.getElementById('fotoPreviewWrapper');
       const fotoPreview = document.getElementById('petFotoPreview');
+
+      if (areaUpload && fotoInput) {
+        areaUpload.onclick = (e) => {
+          if (e.target !== fotoInput) fotoInput.click();
+        };
+      }
 
       if (fotoInput) {
         fotoInput.addEventListener('change', (e) => {
@@ -1243,7 +1295,7 @@ PET-005,${baseUrl}/p/PET-005`;
             const img = new Image();
             img.onload = () => {
               const canvas = document.createElement('canvas');
-              const size = 500;
+              const size = 600;
               canvas.width = size;
               canvas.height = size;
               const ctx = canvas.getContext('2d');
@@ -1251,9 +1303,10 @@ PET-005,${baseUrl}/p/PET-005`;
               const sx = (img.width - side) / 2;
               const sy = (img.height - side) / 2;
               ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-              fotoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-              fotoPreview.src = fotoDataUrl;
-              fotoPreview.classList.remove('hidden');
+              fotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              if (fotoPreview) fotoPreview.src = fotoDataUrl;
+              if (promptText) promptText.classList.add('hidden');
+              if (previewWrap) previewWrap.classList.remove('hidden');
             };
             img.src = ev.target.result;
           };
@@ -1268,8 +1321,10 @@ PET-005,${baseUrl}/p/PET-005`;
           const submitBtn = document.getElementById('btnCadastrarPet');
           const originalText = submitBtn.textContent;
           submitBtn.disabled = true;
-          submitBtn.textContent = 'Gravando na nuvem...';
+          submitBtn.textContent = 'Salvando na nuvem...';
 
+          const sexoEl = form.querySelector('input[name="petSexo"]:checked');
+          const sexo = sexoEl ? sexoEl.value : 'macho';
           const nome = document.getElementById('petNome').value.trim();
           let telRaw = document.getElementById('petTelefone').value.trim();
           let digits = telRaw.replace(/\D/g, "");
@@ -1278,6 +1333,7 @@ PET-005,${baseUrl}/p/PET-005`;
           const dataToSave = {
             id: petId,
             nome: nome,
+            sexo: sexo,
             telefone: digits,
             telefoneOriginal: telRaw,
             foto: fotoDataUrl || (petData && petData.foto ? petData.foto : ""),
@@ -1291,15 +1347,16 @@ PET-005,${baseUrl}/p/PET-005`;
             form.classList.add('hidden');
             const resultado = document.getElementById('petCadastroResultado');
             resultado.classList.remove('hidden');
+            const artigo = sexo === 'femea' ? 'a' : 'o';
             resultado.innerHTML = `
-              <div style="margin-top: 1rem; color: #10b981; font-weight: 600;">
-                <p>✅ Tag cadastrada com sucesso na nuvem para o <strong>${escapeHtml(nome)}</strong>!</p>
-                <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0.5rem;">
-                  A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC em qualquer aparelho abrirá o WhatsApp do tutor.
+              <div style="margin-top: 1rem; color: #16a34a; font-weight: 600;">
+                <p>✅ Tag cadastrada com sucesso para <strong>${artigo} ${escapeHtml(nome)}</strong>!</p>
+                <p style="font-size:0.85rem; color: #64748b; margin-top:0.5rem;">
+                  A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC abrirá a tela oficial de contato do tutor.
                 </p>
                 <div style="margin-top: 1.25rem;">
-                  <button id="btnVerComoFicou" class="btn btn-outline btn-full" style="font-size: 0.88rem; cursor: pointer;">
-                    👀 Ver tela de "Encontrei o Pet"
+                  <button id="btnVerComoFicou" class="btn-submit-clean" style="background: #22c55e; cursor: pointer;">
+                    👀 Ver tela oficial de "Encontrei o Pet"
                   </button>
                 </div>
               </div>
@@ -1327,3 +1384,4 @@ PET-005,${baseUrl}/p/PET-005`;
     init();
   }
 })();
+
