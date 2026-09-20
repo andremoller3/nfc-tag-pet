@@ -1336,3 +1336,89 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Página do Pet (/p/:id) */
+.pet-public-container {
+  max-width: 480px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.pet-card {
+  width: 100%;
+  text-align: center;
+  padding: 2.25rem 1.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.pet-header-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.pet-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6rem;
+}
+
+.pet-desc {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.pet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  text-align: left;
+}
+
+.pet-foto-preview {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  margin: 0.5rem auto 1rem;
+  border: 2px solid var(--border-color);
+  display: block;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.pet-footer-link {
+  font-size: 0.85rem;
+}
+
+.pet-footer-link a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.pet-footer-link a:hover {
+  color: var(--accent-emerald);
+}
+
+.pet-extra-info {
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+

@@ -113,12 +113,32 @@
     return Array.from(bytes, (b) => chars[b % chars.length]).join("");
   }
 
+  const OFFICIAL_DOMAIN = 'https://nfc-tag-pet.vercel.app';
+
   // Inicialização
   function init() {
-    // Restaurar URL Base salva se houver
-    const savedBaseUrl = localStorage.getItem('pet_nfc_base_url');
-    if (savedBaseUrl && dom.directBaseUrl) {
-      dom.directBaseUrl.value = savedBaseUrl;
+    // Verificar se estamos acessando a rota pública do pet (/p/:id)
+    if (window.location.pathname.startsWith('/p/')) {
+      const petId = window.location.pathname.slice(3).replace(/\/+$/, '');
+      if (petId) {
+        initPetPublicFlow(petId);
+        return;
+      }
+    }
+
+    // Restaurar URL Base salva se houver (substituindo placeholders antigos)
+    let savedBaseUrl = localStorage.getItem('pet_nfc_base_url');
+    if (!savedBaseUrl || savedBaseUrl.includes('pet-nfc.workers.dev') || savedBaseUrl.includes('nfc.pet')) {
+      savedBaseUrl = OFFICIAL_DOMAIN;
+      localStorage.setItem('pet_nfc_base_url', OFFICIAL_DOMAIN);
+    }
+
+    if (dom.directBaseUrl) {
+      if (window.location.origin && !window.location.origin.includes('localhost')) {
+        dom.directBaseUrl.value = window.location.origin;
+      } else {
+        dom.directBaseUrl.value = savedBaseUrl || OFFICIAL_DOMAIN;
+      }
     }
 
     setupEventListeners();
@@ -310,7 +330,13 @@
   // Retorna a URL base limpa
   function getBaseUrl() {
     let url = dom.directBaseUrl ? dom.directBaseUrl.value.trim() : '';
-    if (!url) url = 'https://pet-nfc.workers.dev';
+    if (!url || url.includes('pet-nfc.workers.dev') || url.includes('nfc.pet')) {
+      if (window.location.origin && !window.location.origin.includes('localhost')) {
+        url = window.location.origin;
+      } else {
+        url = OFFICIAL_DOMAIN;
+      }
+    }
     return url.replace(/\/+$/, '');
   }
 
@@ -434,12 +460,13 @@
 
   // Dados de Exemplo
   function loadExampleData() {
+    const baseUrl = getBaseUrl();
     const sampleCsv = `id,url
-PET-001,https://nfc.pet/t/PET-001
-PET-002,https://nfc.pet/t/PET-002
-PET-003,https://nfc.pet/t/PET-003
-PET-004,https://nfc.pet/t/PET-004
-PET-005,https://nfc.pet/t/PET-005`;
+PET-001,${baseUrl}/p/PET-001
+PET-002,${baseUrl}/p/PET-002
+PET-003,${baseUrl}/p/PET-003
+PET-004,${baseUrl}/p/PET-004
+PET-005,${baseUrl}/p/PET-005`;
 
     processCsvContent(sampleCsv, 'exemplo-lote-tags.csv');
   }
@@ -920,6 +947,133 @@ PET-005,https://nfc.pet/t/PET-005`;
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // Fluxo da Página do Pet (/p/:id)
+  function initPetPublicFlow(petId) {
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) appContainer.classList.add('hidden');
+
+    const petContainer = document.getElementById('petPublicContainer');
+    if (!petContainer) return;
+    petContainer.classList.remove('hidden');
+
+    const cardCadastro = document.getElementById('cardCadastroPet');
+    const cardEncontrei = document.getElementById('cardEncontreiPet');
+
+    // Verificar se a tag já foi cadastrada no localStorage
+    const savedDataStr = localStorage.getItem(`pet_tag_${petId.toLowerCase()}`);
+    let petData = null;
+    if (savedDataStr) {
+      try { petData = JSON.parse(savedDataStr); } catch (e) {}
+    }
+
+    if (petData && petData.ativado) {
+      // Pet já cadastrado: mostrar tela de Encontrei o Pet
+      cardEncontrei.classList.remove('hidden');
+      document.getElementById('encontreiTitulo').textContent = `Encontrei o ${petData.nome}!`;
+      document.getElementById('encontreiTagId').textContent = `ID da Tag: ${petId}`;
+
+      const fotoEl = document.getElementById('encontreiFoto');
+      if (petData.foto) {
+        fotoEl.src = petData.foto;
+        fotoEl.classList.remove('hidden');
+      }
+
+      const btnAvisar = document.getElementById('btnAvisarWhats');
+      const statusEl = document.getElementById('encontreiStatus');
+
+      function irParaWhats(localizacaoTexto = "") {
+        let msg = `Ola! Encontrei o ${petData.nome}!`;
+        if (localizacaoTexto) msg += ` Minha localizacao: ${localizacaoTexto}`;
+        const link = `https://wa.me/${petData.telefone}?text=${encodeURIComponent(msg)}`;
+        btnAvisar.href = link;
+        btnAvisar.classList.remove('hidden');
+        statusEl.textContent = "Clique abaixo para falar diretamente com o tutor no WhatsApp:";
+      }
+
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            irParaWhats(`https://maps.google.com/?q=${lat},${lon}`);
+          },
+          () => { irParaWhats(); },
+          { timeout: 5000 }
+        );
+      } else {
+        irParaWhats();
+      }
+    } else {
+      // Tag sem dono: mostrar formulário de cadastro direto
+      cardCadastro.classList.remove('hidden');
+
+      let fotoDataUrl = "";
+      const fotoInput = document.getElementById('petFoto');
+      const fotoPreview = document.getElementById('petFotoPreview');
+
+      if (fotoInput) {
+        fotoInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const size = 500;
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              const side = Math.min(img.width, img.height);
+              const sx = (img.width - side) / 2;
+              const sy = (img.height - side) / 2;
+              ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+              fotoDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              fotoPreview.src = fotoDataUrl;
+              fotoPreview.classList.remove('hidden');
+            };
+            img.src = ev.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const form = document.getElementById('formCadastroPet');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const nome = document.getElementById('petNome').value.trim();
+          let telRaw = document.getElementById('petTelefone').value.trim();
+          let digits = telRaw.replace(/\D/g, "");
+          if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
+
+          const dataToSave = {
+            id: petId,
+            nome: nome,
+            telefone: digits,
+            telefoneOriginal: telRaw,
+            foto: fotoDataUrl,
+            ativado: true
+          };
+
+          localStorage.setItem(`pet_tag_${petId.toLowerCase()}`, JSON.stringify(dataToSave));
+
+          form.classList.add('hidden');
+          const resultado = document.getElementById('petCadastroResultado');
+          resultado.classList.remove('hidden');
+          resultado.innerHTML = `
+            <div style="margin-top: 1rem; color: #10b981; font-weight: 600;">
+              <p>✅ Tag cadastrada com sucesso para o <strong>${escapeHtml(nome)}</strong>!</p>
+              <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0.5rem;">
+                A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC abrirá o WhatsApp do tutor.
+              </p>
+            </div>
+          `;
+        });
+      }
+    }
   }
 
   // Inicializar quando o DOM estiver pronto

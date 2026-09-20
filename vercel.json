@@ -2,6 +2,16 @@
   "version": 2,
   "cleanUrls": true,
   "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/p/:id*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/editar/:id*",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

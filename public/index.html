@@ -98,8 +98,8 @@
       <div id="directZone" class="direct-zone">
         <div class="direct-form-grid">
           <div class="form-group">
-            <label for="directBaseUrl">URL Base do Sistema (Cloudflare Worker ou Domínio)</label>
-            <input type="url" id="directBaseUrl" placeholder="https://pet-nfc.workers.dev" value="https://pet-nfc.workers.dev" class="styled-input" />
+            <label for="directBaseUrl">URL Base do Sistema (Domínio do Site)</label>
+            <input type="url" id="directBaseUrl" placeholder="https://nfc-tag-pet.vercel.app" value="https://nfc-tag-pet.vercel.app" class="styled-input" />
             <span class="field-hint">Cada tag terá o link: <code>{url_base}/p/{id}</code></span>
           </div>
 
@@ -172,7 +172,7 @@
 
       <!-- Zona de Colar Texto -->
       <div id="pasteZone" class="paste-zone hidden">
-        <textarea id="csvTextarea" rows="6" placeholder="id,url&#10;PET-001,https://nfc.pet/t/PET-001&#10;PET-002,https://nfc.pet/t/PET-002" class="code-textarea"></textarea>
+        <textarea id="csvTextarea" rows="6" placeholder="id,url&#10;PET-001,https://nfc-tag-pet.vercel.app/p/PET-001&#10;PET-002,https://nfc-tag-pet.vercel.app/p/PET-002" class="code-textarea"></textarea>
         <div class="paste-actions">
           <button id="btnProcessPaste" class="btn btn-primary">Processar Texto CSV</button>
         </div>
@@ -472,13 +472,69 @@
         </div>
         <div class="form-group">
           <label for="singleTagUrl">URL Completa da Tag</label>
-          <input type="url" id="singleTagUrl" placeholder="https://pet-nfc.workers.dev/p/..." class="styled-input" />
+          <input type="url" id="singleTagUrl" placeholder="https://nfc-tag-pet.vercel.app/p/..." class="styled-input" />
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnCancelAddTag">Cancelar</button>
         <button class="btn btn-primary" id="btnConfirmAddTag">Adicionar ao Lote</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Container da Página do Pet (Ativado quando a rota for /p/:id) -->
+  <div id="petPublicContainer" class="pet-public-container hidden">
+    <!-- Card de Cadastro Direto (quando a tag ainda não tem dono) -->
+    <div id="cardCadastroPet" class="card pet-card hidden">
+      <div class="pet-header-icon">🐾</div>
+      <h1 class="pet-title">Esta identificação ainda não tem dono</h1>
+      <p class="pet-desc">Preencha os dados abaixo para vincular esta tag ao seu pet. A partir daí, quem escanear entrará em contato direto com você pelo WhatsApp.</p>
+      
+      <form id="formCadastroPet" class="pet-form">
+        <div class="form-group">
+          <label for="petNome">Nome do Pet *</label>
+          <input type="text" id="petNome" required maxlength="40" placeholder="ex: Thor, Luna, Bob" class="styled-input" />
+        </div>
+
+        <div class="form-group">
+          <label for="petTelefone">WhatsApp do Dono (com DDD) *</label>
+          <input type="tel" id="petTelefone" required placeholder="(11) 99999-9999" class="styled-input" />
+        </div>
+
+        <div class="form-group">
+          <label for="petFoto">Foto do Pet (opcional)</label>
+          <input type="file" id="petFoto" accept="image/*" class="styled-file-input" />
+          <img id="petFotoPreview" class="pet-foto-preview hidden" alt="Preview da Foto" />
+        </div>
+
+        <button type="submit" id="btnCadastrarPet" class="btn btn-glow-primary btn-large btn-full">
+          Cadastrar Meu Pet
+        </button>
+      </form>
+
+      <div id="petCadastroResultado" class="hidden"></div>
+    </div>
+
+    <!-- Card de Pet Encontrado (quando a tag já está cadastrada) -->
+    <div id="cardEncontreiPet" class="card pet-card hidden">
+      <img id="encontreiFoto" class="pet-foto-preview hidden" alt="Foto do Pet" />
+      <h1 id="encontreiTitulo" class="pet-title">Encontrei o Pet!</h1>
+      <p id="encontreiStatus" class="pet-desc">Obtendo sua localização para avisar o dono...</p>
+      
+      <a id="btnAvisarWhats" href="#" class="btn btn-glow-primary btn-large btn-full hidden">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/>
+        </svg>
+        Avisar no WhatsApp
+      </a>
+
+      <div class="pet-extra-info">
+        <span id="encontreiTagId">ID: PET-001</span>
+      </div>
+    </div>
+
+    <div class="pet-footer-link">
+      <a href="/">Ir para a Central de Produção</a>
     </div>
   </div>
 
