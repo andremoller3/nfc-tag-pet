@@ -118,12 +118,10 @@
   // Inicialização
   function init() {
     // Verificar se estamos acessando a rota pública do pet (/p/:id)
-    if (window.location.pathname.startsWith('/p/')) {
-      const petId = window.location.pathname.slice(3).replace(/\/+$/, '');
-      if (petId) {
-        initPetPublicFlow(petId);
-        return;
-      }
+    const petMatch = window.location.pathname.match(/^\/p\/([^/?#]+)/i);
+    if (petMatch && petMatch[1]) {
+      initPetPublicFlow(petMatch[1].trim());
+      return;
     }
 
     // Restaurar URL Base salva se houver (substituindo placeholders antigos)
@@ -1069,8 +1067,19 @@ PET-005,${baseUrl}/p/PET-005`;
               <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0.5rem;">
                 A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC abrirá o WhatsApp do tutor.
               </p>
+              <div style="margin-top: 1.25rem;">
+                <button id="btnVerComoFicou" class="btn btn-outline btn-full" style="font-size: 0.88rem;">
+                  👀 Ver tela pública de "Encontrei o Pet"
+                </button>
+              </div>
             </div>
           `;
+          const btnVer = document.getElementById('btnVerComoFicou');
+          if (btnVer) {
+            btnVer.addEventListener('click', () => {
+              window.location.reload();
+            });
+          }
         });
       }
     }

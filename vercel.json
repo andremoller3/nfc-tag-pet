@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "cleanUrls": true,
   "outputDirectory": "public",
   "rewrites": [
     {
-      "source": "/p/:id*",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/editar/:id*",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
