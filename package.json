@@ -1,17 +1,22 @@
 {
-  "name": "nfc-tag-pet-producao",
+  "name": "nfc-tag-pet-sistema",
   "version": "1.0.0",
-  "description": "Gerador de QR Codes SVG para fatiador 3D (Bambu Studio) e planilha de produção de coleiras NFC",
-  "main": "gerar-producao.js",
+  "description": "Sistema completo NFC Pet: Cloudflare Worker (cadastro, geolocalização e admin) + Central de Produção de QR Codes SVG para fatiador 3D (Bambu Studio)",
+  "main": "src/index.js",
   "scripts": {
     "start": "serve .",
     "dev": "serve .",
     "build": "node -e \"console.log('Build estático pronto para Vercel')\"",
-    "gerar": "node gerar-producao.js"
+    "gerar": "node gerar-producao.js",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:kv": "wrangler kv namespace create PETS",
+    "worker:secret": "wrangler secret put ADMIN_KEY"
   },
   "keywords": [
     "nfc",
     "pet",
+    "cloudflare-worker",
     "qr-code",
     "svg",
     "bambu-studio",
@@ -25,6 +30,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "serve": "^14.2.4"
+    "serve": "^14.2.4",
+    "wrangler": "^3.114.0"
   }
 }

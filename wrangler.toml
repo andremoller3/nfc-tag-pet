@@ -1,0 +1,9 @@
+name = "pet-nfc"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# Depois de rodar `wrangler kv namespace create PETS`,
+# cole o "id" retornado aqui embaixo.
+[[kv_namespaces]]
+binding = "PETS"
+id = "COLE_AQUI_O_ID_DO_KV_NAMESPACE"
