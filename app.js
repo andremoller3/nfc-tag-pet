@@ -98,7 +98,16 @@
     btnConfirmAddTag: document.getElementById('btnConfirmAddTag'),
     singleTagId: document.getElementById('singleTagId'),
     singleTagUrl: document.getElementById('singleTagUrl'),
-    btnGenRandomSingleId: document.getElementById('btnGenRandomSingleId')
+    btnGenRandomSingleId: document.getElementById('btnGenRandomSingleId'),
+
+    // Modal Pets na Nuvem
+    btnOpenCloudPets: document.getElementById('btnOpenCloudPets'),
+    modalCloudPets: document.getElementById('modalCloudPets'),
+    btnCloseCloudPets: document.getElementById('btnCloseCloudPets'),
+    btnOkCloudPets: document.getElementById('btnOkCloudPets'),
+    btnRefreshCloudPets: document.getElementById('btnRefreshCloudPets'),
+    cloudPetsContainer: document.getElementById('cloudPetsContainer'),
+    cloudPetsCountBadge: document.getElementById('cloudPetsCountBadge')
   };
 
   // Gerador de ID aleatório de 6 caracteres (padrão oficial do Worker)
@@ -299,12 +308,19 @@
       }
     });
 
+    // Modal Pets na Nuvem
+    if (dom.btnOpenCloudPets) dom.btnOpenCloudPets.addEventListener('click', openCloudPetsModal);
+    if (dom.btnCloseCloudPets) dom.btnCloseCloudPets.addEventListener('click', () => closeModal(dom.modalCloudPets));
+    if (dom.btnOkCloudPets) dom.btnOkCloudPets.addEventListener('click', () => closeModal(dom.modalCloudPets));
+    if (dom.btnRefreshCloudPets) dom.btnRefreshCloudPets.addEventListener('click', openCloudPetsModal);
+
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeModal(dom.modalGuide);
         closeModal(dom.modalDeploy);
         closeModal(dom.modalPreview);
         closeModal(dom.modalAddTag);
+        closeModal(dom.modalCloudPets);
       }
     });
   }
@@ -1013,8 +1029,127 @@ PET-005,${baseUrl}/p/PET-005`;
       .replace(/'/g, '&#039;');
   }
 
+  // ===== Integração com Firebase Realtime Database (Nuvem) =====
+  const FIREBASE_DB_URL = 'https://nfc-tag-pet-default-rtdb.firebaseio.com';
+
+  // Buscar dados do pet no Firebase Realtime Database
+  async function fetchPetFromCloud(petId) {
+    const cleanId = petId.toLowerCase().trim();
+    try {
+      const response = await fetch(`${FIREBASE_DB_URL}/pets/${cleanId}.json`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.ativado) {
+          localStorage.setItem(`pet_tag_${cleanId}`, JSON.stringify(data));
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao consultar Firebase, buscando no cache local:', err);
+    }
+    const local = localStorage.getItem(`pet_tag_${cleanId}`);
+    try { return local ? JSON.parse(local) : null; } catch (e) { return null; }
+  }
+
+  // Gravar dados do pet no Firebase Realtime Database
+  async function savePetToCloud(petId, petData) {
+    const cleanId = petId.toLowerCase().trim();
+    try {
+      const response = await fetch(`${FIREBASE_DB_URL}/pets/${cleanId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(petData)
+      });
+      if (!response.ok) {
+        throw new Error(`Erro no banco: HTTP ${response.status}`);
+      }
+    } catch (err) {
+      console.error('Falha salvando no Firebase:', err);
+      throw err;
+    }
+    localStorage.setItem(`pet_tag_${cleanId}`, JSON.stringify(petData));
+  }
+
+  // Modal com todos os Pets Cadastrados na Nuvem
+  async function openCloudPetsModal() {
+    if (!dom.modalCloudPets || !dom.cloudPetsContainer) return;
+    openModal(dom.modalCloudPets);
+    dom.cloudPetsContainer.innerHTML = `
+      <div style="padding: 2.5rem; text-align: center; color: var(--text-dim);">
+        <div class="spin" style="font-size: 2rem; margin-bottom: 0.75rem;">🐾</div>
+        <p style="font-size: 0.95rem;">Consultando banco de dados na nuvem...</p>
+      </div>
+    `;
+
+    try {
+      const resp = await fetch(`${FIREBASE_DB_URL}/pets.json`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const pets = await resp.json();
+
+      if (!pets || Object.keys(pets).length === 0) {
+        if (dom.cloudPetsCountBadge) dom.cloudPetsCountBadge.textContent = '0';
+        dom.cloudPetsContainer.innerHTML = `
+          <div style="padding: 3rem; text-align: center; color: var(--text-dim);">
+            <p style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;">Nenhum pet cadastrado na nuvem ainda.</p>
+            <span style="font-size: 0.85rem;">Assim que os clientes escanearem as tags físicas e cadastrarem, eles aparecerão aqui em tempo real.</span>
+          </div>
+        `;
+        return;
+      }
+
+      const list = Object.entries(pets).map(([id, p]) => ({ id, ...p }));
+      if (dom.cloudPetsCountBadge) dom.cloudPetsCountBadge.textContent = `${list.length}`;
+
+      dom.cloudPetsContainer.innerHTML = `
+        <table class="tags-table-view">
+          <thead>
+            <tr>
+              <th style="width: 50px;">Foto</th>
+              <th>ID da Tag</th>
+              <th>Nome do Pet</th>
+              <th>WhatsApp do Tutor</th>
+              <th>Data do Cadastro</th>
+              <th style="text-align: right;">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(p => `
+              <tr>
+                <td>
+                  ${p.foto ? `<img src="${p.foto}" style="width: 36px; height: 36px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color);" />` : '🐾'}
+                </td>
+                <td><strong style="font-family: var(--font-mono); color: #fff;">${escapeHtml(p.id)}</strong></td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">${escapeHtml(p.nome || 'Sem nome')}</span></td>
+                <td>
+                  <a href="https://wa.me/${escapeHtml(p.telefone)}" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: none; font-weight: 500;">
+                    ${escapeHtml(p.telefoneOriginal || p.telefone)}
+                  </a>
+                </td>
+                <td style="color: var(--text-dim); font-size: 0.82rem;">
+                  ${p.cadastradoEm ? new Date(p.cadastradoEm).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                </td>
+                <td style="text-align: right;">
+                  <a href="/p/${escapeHtml(p.id)}" target="_blank" class="btn btn-download-svg" style="font-size: 0.78rem; text-decoration: none;">
+                    Ver Tag ↗
+                  </a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (err) {
+      dom.cloudPetsContainer.innerHTML = `
+        <div style="padding: 2.5rem; text-align: center; color: #f43f5e;">
+          <p style="font-weight: 600; margin-bottom: 0.5rem;">Erro ao carregar dados da nuvem</p>
+          <span style="font-size: 0.85rem; color: var(--text-dim);">${escapeHtml(err.message)}</span>
+        </div>
+      `;
+    }
+  }
+
   // Fluxo da Página do Pet (/p/:id)
-  function initPetPublicFlow(petId) {
+  async function initPetPublicFlow(petId) {
     const appContainer = document.querySelector('.app-container');
     if (appContainer) appContainer.classList.add('hidden');
 
@@ -1022,26 +1157,30 @@ PET-005,${baseUrl}/p/PET-005`;
     if (!petContainer) return;
     petContainer.classList.remove('hidden');
 
+    const loadingEl = document.getElementById('petLoadingState');
     const cardCadastro = document.getElementById('cardCadastroPet');
     const cardEncontrei = document.getElementById('cardEncontreiPet');
 
-    // Verificar se a tag já foi cadastrada no localStorage
-    const savedDataStr = localStorage.getItem(`pet_tag_${petId.toLowerCase()}`);
-    let petData = null;
-    if (savedDataStr) {
-      try { petData = JSON.parse(savedDataStr); } catch (e) {}
-    }
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (cardCadastro) cardCadastro.classList.add('hidden');
+    if (cardEncontrei) cardEncontrei.classList.add('hidden');
+
+    const petData = await fetchPetFromCloud(petId);
+
+    if (loadingEl) loadingEl.classList.add('hidden');
 
     if (petData && petData.ativado) {
       // Pet já cadastrado: mostrar tela de Encontrei o Pet
       cardEncontrei.classList.remove('hidden');
-      document.getElementById('encontreiTitulo').textContent = `Encontrei o ${petData.nome}!`;
-      document.getElementById('encontreiTagId').textContent = `ID da Tag: ${petId}`;
+      document.getElementById('encontreiTitulo').textContent = `Encontrei o ${escapeHtml(petData.nome)}!`;
+      document.getElementById('encontreiTagId').textContent = `ID da Tag: ${escapeHtml(petId)}`;
 
       const fotoEl = document.getElementById('encontreiFoto');
       if (petData.foto) {
         fotoEl.src = petData.foto;
         fotoEl.classList.remove('hidden');
+      } else {
+        fotoEl.classList.add('hidden');
       }
 
       const btnAvisar = document.getElementById('btnAvisarWhats');
@@ -1068,6 +1207,24 @@ PET-005,${baseUrl}/p/PET-005`;
         );
       } else {
         irParaWhats();
+      }
+
+      // Permitir que o tutor altere seus dados
+      const btnEditar = document.getElementById('btnEditarDadosTutor');
+      if (btnEditar) {
+        btnEditar.onclick = () => {
+          cardEncontrei.classList.add('hidden');
+          cardCadastro.classList.remove('hidden');
+          document.getElementById('petNome').value = petData.nome || '';
+          document.getElementById('petTelefone').value = petData.telefoneOriginal || petData.telefone || '';
+          if (petData.foto) {
+            const preview = document.getElementById('petFotoPreview');
+            preview.src = petData.foto;
+            preview.classList.remove('hidden');
+          }
+          const submitBtn = document.getElementById('btnCadastrarPet');
+          if (submitBtn) submitBtn.textContent = 'Salvar Alterações';
+        };
       }
     } else {
       // Tag sem dono: mostrar formulário de cadastro direto
@@ -1106,8 +1263,13 @@ PET-005,${baseUrl}/p/PET-005`;
 
       const form = document.getElementById('formCadastroPet');
       if (form) {
-        form.addEventListener('submit', (e) => {
+        form.onsubmit = async (e) => {
           e.preventDefault();
+          const submitBtn = document.getElementById('btnCadastrarPet');
+          const originalText = submitBtn.textContent;
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Gravando na nuvem...';
+
           const nome = document.getElementById('petNome').value.trim();
           let telRaw = document.getElementById('petTelefone').value.trim();
           let digits = telRaw.replace(/\D/g, "");
@@ -1118,35 +1280,42 @@ PET-005,${baseUrl}/p/PET-005`;
             nome: nome,
             telefone: digits,
             telefoneOriginal: telRaw,
-            foto: fotoDataUrl,
-            ativado: true
+            foto: fotoDataUrl || (petData && petData.foto ? petData.foto : ""),
+            ativado: true,
+            cadastradoEm: new Date().toISOString()
           };
 
-          localStorage.setItem(`pet_tag_${petId.toLowerCase()}`, JSON.stringify(dataToSave));
+          try {
+            await savePetToCloud(petId, dataToSave);
 
-          form.classList.add('hidden');
-          const resultado = document.getElementById('petCadastroResultado');
-          resultado.classList.remove('hidden');
-          resultado.innerHTML = `
-            <div style="margin-top: 1rem; color: #10b981; font-weight: 600;">
-              <p>✅ Tag cadastrada com sucesso para o <strong>${escapeHtml(nome)}</strong>!</p>
-              <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0.5rem;">
-                A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC abrirá o WhatsApp do tutor.
-              </p>
-              <div style="margin-top: 1.25rem;">
-                <button id="btnVerComoFicou" class="btn btn-outline btn-full" style="font-size: 0.88rem;">
-                  👀 Ver tela pública de "Encontrei o Pet"
-                </button>
+            form.classList.add('hidden');
+            const resultado = document.getElementById('petCadastroResultado');
+            resultado.classList.remove('hidden');
+            resultado.innerHTML = `
+              <div style="margin-top: 1rem; color: #10b981; font-weight: 600;">
+                <p>✅ Tag cadastrada com sucesso na nuvem para o <strong>${escapeHtml(nome)}</strong>!</p>
+                <p style="font-size:0.85rem; color: var(--text-muted); margin-top:0.5rem;">
+                  A partir de agora, quem escanear este QR Code ou aproximar o celular da tag NFC em qualquer aparelho abrirá o WhatsApp do tutor.
+                </p>
+                <div style="margin-top: 1.25rem;">
+                  <button id="btnVerComoFicou" class="btn btn-outline btn-full" style="font-size: 0.88rem; cursor: pointer;">
+                    👀 Ver tela de "Encontrei o Pet"
+                  </button>
+                </div>
               </div>
-            </div>
-          `;
-          const btnVer = document.getElementById('btnVerComoFicou');
-          if (btnVer) {
-            btnVer.addEventListener('click', () => {
-              window.location.reload();
-            });
+            `;
+            const btnVer = document.getElementById('btnVerComoFicou');
+            if (btnVer) {
+              btnVer.addEventListener('click', () => {
+                window.location.reload();
+              });
+            }
+          } catch (err) {
+            alert('Erro ao salvar no banco de dados na nuvem: ' + err.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
           }
-        });
+        };
       }
     }
   }
