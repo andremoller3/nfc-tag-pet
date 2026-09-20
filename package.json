@@ -4,9 +4,9 @@
   "description": "Sistema completo NFC Pet: Cloudflare Worker (cadastro, geolocalização e admin) + Central de Produção de QR Codes SVG para fatiador 3D (Bambu Studio)",
   "main": "src/index.js",
   "scripts": {
-    "start": "serve .",
-    "dev": "serve .",
-    "build": "node -e \"console.log('Build estático pronto para Vercel')\"",
+    "start": "serve public",
+    "dev": "serve public",
+    "build": "node -e \"console.log('Build estatico concluido')\"",
     "gerar": "node gerar-producao.js",
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
