@@ -141,6 +141,7 @@
 
     setupEventListeners();
     dom.batchDateLabel.textContent = `Data do lote: ${state.batchDate}`;
+    restoreBatchFromStorage();
   }
 
   // Configuração dos Eventos
@@ -389,6 +390,7 @@
 
     updateMetrics();
     renderTags();
+    saveBatchToStorage();
 
     // Rolar suavemente para o lote de produção ativo
     dom.productionSection.scrollIntoView({ behavior: 'smooth' });
@@ -439,6 +441,7 @@
     dom.fileCountDisplay.textContent = `${state.records.length} tags`;
     updateMetrics();
     renderTags();
+    saveBatchToStorage();
     closeModal(dom.modalAddTag);
   }
 
@@ -530,6 +533,7 @@ PET-005,${baseUrl}/p/PET-005`;
 
     updateMetrics();
     renderTags();
+    saveBatchToStorage();
   }
 
   // Geração dos SVGs no cliente
@@ -679,6 +683,7 @@ PET-005,${baseUrl}/p/PET-005`;
       select.className = `status-pill-select ${newStatus}`;
       card.className = `tag-card status-${newStatus}`;
       updateMetrics();
+      saveBatchToStorage();
     });
 
     const qrBox = card.querySelector('.qr-preview-box');
@@ -761,6 +766,7 @@ PET-005,${baseUrl}/p/PET-005`;
         record.status = newStatus;
         select.className = `status-pill-select ${newStatus}`;
         updateMetrics();
+        saveBatchToStorage();
       });
 
       const qrBox = tr.querySelector('.table-mini-qr');
@@ -921,12 +927,72 @@ PET-005,${baseUrl}/p/PET-005`;
   // Resetar dados para carregar outro lote
   function resetData() {
     state.records = [];
+    localStorage.removeItem('pet_production_batch');
     dom.fileFeedback.classList.add('hidden');
     dom.productionSection.classList.add('hidden');
     if (dom.fileInput) dom.fileInput.value = '';
     if (dom.csvTextarea) dom.csvTextarea.value = '';
     if (dom.searchInput) dom.searchInput.value = '';
     if (dom.filterStatus) dom.filterStatus.value = 'todos';
+  }
+
+  // Salvar lote ativo no localStorage para não perder ao atualizar a página (F5)
+  function saveBatchToStorage() {
+    try {
+      if (!state.records || state.records.length === 0) {
+        localStorage.removeItem('pet_production_batch');
+        return;
+      }
+      const dataToSave = {
+        records: state.records.map(r => ({
+          id: r.id,
+          url: r.url,
+          arquivoQr: r.arquivoQr,
+          status: r.status
+        })),
+        fileName: dom.fileNameDisplay ? dom.fileNameDisplay.textContent : 'Lote Ativo',
+        batchDate: state.batchDate
+      };
+      localStorage.setItem('pet_production_batch', JSON.stringify(dataToSave));
+    } catch (e) {
+      console.warn('Não foi possível salvar o lote no armazenamento local:', e);
+    }
+  }
+
+  // Restaurar lote ativo do localStorage se existir
+  function restoreBatchFromStorage() {
+    try {
+      const saved = localStorage.getItem('pet_production_batch');
+      if (!saved) return false;
+      const parsed = JSON.parse(saved);
+      if (!parsed.records || parsed.records.length === 0) return false;
+
+      const records = parsed.records.map(r => ({
+        id: r.id,
+        url: r.url,
+        arquivoQr: r.arquivoQr,
+        status: r.status,
+        svgString: null
+      }));
+      generateSvgsForRecords(records);
+      state.records = records;
+      if (parsed.batchDate) {
+        state.batchDate = parsed.batchDate;
+        if (dom.batchDateLabel) dom.batchDateLabel.textContent = `Data do lote: ${parsed.batchDate}`;
+      }
+
+      if (dom.fileNameDisplay) dom.fileNameDisplay.textContent = parsed.fileName || `Lote com ${records.length} tags`;
+      if (dom.fileCountDisplay) dom.fileCountDisplay.textContent = `${records.length} tags`;
+      if (dom.fileFeedback) dom.fileFeedback.classList.remove('hidden');
+      if (dom.productionSection) dom.productionSection.classList.remove('hidden');
+
+      updateMetrics();
+      renderTags();
+      return true;
+    } catch (e) {
+      console.error('Erro restaurando lote:', e);
+      return false;
+    }
   }
 
   // Utilitários de Modal
