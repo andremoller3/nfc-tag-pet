@@ -552,7 +552,34 @@ PET-005,${baseUrl}/p/PET-005`;
     saveBatchToStorage();
   }
 
-  // Geração dos SVGs no cliente
+  // Converte a matriz do QR Code em um SVG 100% otimizado para fatiadores 3D (Bambu Studio / OrcaSlicer)
+  // - Sem retângulo de fundo (evita extrusão de bloco sólido no Bambu Studio)
+  // - Polígonos 2D fechados (fill) em vez de traços 1D (stroke)
+  function qrToBambuSvg(qrData, margin = 1) {
+    const size = qrData.modules.size;
+    const totalSize = size + margin * 2;
+    let d = '';
+
+    for (let row = 0; row < size; row++) {
+      let col = 0;
+      while (col < size) {
+        if (qrData.modules.get(row, col)) {
+          const startCol = col;
+          while (col < size && qrData.modules.get(row, col)) {
+            col++;
+          }
+          const length = col - startCol;
+          d += `M${startCol + margin},${row + margin}h${length}v1h-${length}z`;
+        } else {
+          col++;
+        }
+      }
+    }
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalSize} ${totalSize}" shape-rendering="crispEdges"><path fill="#000000" d="${d}"/></svg>`;
+  }
+
+  // Geração dos SVGs no cliente (compatível com Bambu Studio)
   function generateSvgsForRecords(records) {
     const qrEngine = window.QRCodeSvg || window.QRCode;
 
@@ -564,12 +591,19 @@ PET-005,${baseUrl}/p/PET-005`;
 
     records.forEach(record => {
       try {
-        const svg = qrEngine.toString(record.url, {
-          type: 'svg',
-          margin: 1,
-          errorCorrectionLevel: 'M'
-        });
-        record.svgString = svg;
+        if (typeof qrEngine.qrToBambuSvg === 'function' && typeof qrEngine.create === 'function') {
+          const qrData = qrEngine.create(record.url, { margin: 1, errorCorrectionLevel: 'M' });
+          record.svgString = qrEngine.qrToBambuSvg(qrData, 1);
+        } else if (typeof qrEngine.create === 'function') {
+          const qrData = qrEngine.create(record.url, { margin: 1, errorCorrectionLevel: 'M' });
+          record.svgString = qrToBambuSvg(qrData, 1);
+        } else {
+          record.svgString = qrEngine.toString(record.url, {
+            type: 'svg',
+            margin: 1,
+            errorCorrectionLevel: 'M'
+          });
+        }
       } catch (err) {
         console.error(`Erro gerando QR para ${record.id}:`, err);
       }
